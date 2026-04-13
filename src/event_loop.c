@@ -576,29 +576,33 @@ static EVENT_HANDLER(WINDOW_CREATED)
     }
 }
 
-// Track Arc fullscreen transitions on macOS Sequoia/Tahoe
-// Arc browser doesn't properly update window state when exiting fullscreen
+// Track fullscreen transitions for browsers that don't properly update
+// window state when exiting fullscreen on macOS Sequoia/Tahoe
 typedef struct {
     uint32_t window_id;
     uint64_t last_fullscreen_space;
-} arc_window_state;
+} browser_fs_window_state;
 
-#define MAX_ARC_WINDOWS 10
-static arc_window_state arc_windows[MAX_ARC_WINDOWS] = {0};
+#define MAX_BROWSER_FS_WINDOWS 10
+static browser_fs_window_state browser_fs_windows[MAX_BROWSER_FS_WINDOWS] = {0};
 
-static arc_window_state* find_or_create_arc_state(uint32_t window_id) {
-    for (int i = 0; i < MAX_ARC_WINDOWS; i++) {
-        if (arc_windows[i].window_id == window_id) return &arc_windows[i];
+static bool browser_needs_fs_fix(const char *name) {
+    return strcmp(name, "Arc") == 0 || strcmp(name, "Dia") == 0;
+}
+
+static browser_fs_window_state* find_or_create_browser_fs_state(uint32_t window_id) {
+    for (int i = 0; i < MAX_BROWSER_FS_WINDOWS; i++) {
+        if (browser_fs_windows[i].window_id == window_id) return &browser_fs_windows[i];
     }
-    for (int i = 0; i < MAX_ARC_WINDOWS; i++) {
-        if (arc_windows[i].window_id == 0) {
-            arc_windows[i].window_id = window_id;
-            return &arc_windows[i];
+    for (int i = 0; i < MAX_BROWSER_FS_WINDOWS; i++) {
+        if (browser_fs_windows[i].window_id == 0) {
+            browser_fs_windows[i].window_id = window_id;
+            return &browser_fs_windows[i];
         }
     }
-    arc_windows[0].window_id = window_id;
-    arc_windows[0].last_fullscreen_space = 0;
-    return &arc_windows[0];
+    browser_fs_windows[0].window_id = window_id;
+    browser_fs_windows[0].last_fullscreen_space = 0;
+    return &browser_fs_windows[0];
 }
 
 static EVENT_HANDLER(WINDOW_DESTROYED)
@@ -668,33 +672,24 @@ static EVENT_HANDLER(WINDOW_MOVED)
     struct window *window = window_manager_find_window(&g_window_manager, window_id);
     if (!window) return;
     
-    //
-    // NOTE: Arc browser on macOS Sequoia/Tahoe doesn't properly update window state 
-    // when exiting fullscreen. We detect and fix this in WINDOW_MOVED events.
-    //
-    if (strcmp(window->application->name, "Arc") == 0) {
+    if (browser_needs_fs_fix(window->application->name)) {
         uint64_t current_space = window_space(window->id);
         bool is_user_space = space_is_user(current_space);
         bool is_fullscreen = window_is_fullscreen(window);
         bool is_managed = window_manager_find_managed_window(&g_window_manager, window) != NULL;
-        
-        // Arc exited fullscreen: on user space, not fullscreen, not managed
+
         if (is_user_space && !is_fullscreen && !is_managed) {
-            arc_window_state *arc_state = find_or_create_arc_state(window->id);
-            
-            // Check if we just came from a fullscreen space
-            if (arc_state->last_fullscreen_space != 0) {
-                // Ensure window has correct flags
+            browser_fs_window_state *state = find_or_create_browser_fs_state(window->id);
+
+            if (state->last_fullscreen_space != 0) {
                 window_set_flag(window, WINDOW_MOVABLE);
                 window_set_flag(window, WINDOW_RESIZABLE);
                 window_clear_flag(window, WINDOW_FULLSCREEN);
-                
-                // Re-add to management
+
                 struct view *view = space_manager_tile_window_on_space(&g_space_manager, window, current_space);
                 window_manager_add_managed_window(&g_window_manager, window, view);
-                
-                // Clear the fullscreen space tracking
-                arc_state->last_fullscreen_space = 0;
+
+                state->last_fullscreen_space = 0;
             }
         }
     }
@@ -772,14 +767,13 @@ static EVENT_HANDLER(WINDOW_RESIZED)
 
     bool is_fullscreen = window_is_fullscreen(window);
     
-    // Track Arc entering fullscreen spaces
-    if (strcmp(window->application->name, "Arc") == 0) {
+    if (browser_needs_fs_fix(window->application->name)) {
         uint64_t current_space = window_space(window->id);
         bool is_user_space = space_is_user(current_space);
-        
+
         if (!is_user_space) {
-            arc_window_state *arc_state = find_or_create_arc_state(window->id);
-            arc_state->last_fullscreen_space = current_space;
+            browser_fs_window_state *state = find_or_create_browser_fs_state(window->id);
+            state->last_fullscreen_space = current_space;
         }
     }
     
