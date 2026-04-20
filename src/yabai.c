@@ -22,7 +22,7 @@
 
 #define MAJOR  7
 #define MINOR  1
-#define PATCH 19
+#define PATCH 23
 
 struct signal *g_signal_event[SIGNAL_TYPE_COUNT];
 struct process_manager g_process_manager;
@@ -326,6 +326,7 @@ int main(int argc, char **argv)
     }
 
     SLSRegisterConnectionNotifyProc(g_connection, connection_handler, 808, NULL);
+    SLSRegisterConnectionNotifyProc(g_connection, connection_handler, 1202, NULL);
 
     if (workspace_is_macos_sequoia() || workspace_is_macos_tahoe()) {
         SLSRegisterConnectionNotifyProc(g_connection, connection_handler, 804, NULL);
