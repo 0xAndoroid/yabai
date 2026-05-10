@@ -383,12 +383,17 @@ static EVENT_HANDLER(APPLICATION_FRONT_SWITCHED)
     g_process_manager.front_pid = process->pid;
     event_signal_push(SIGNAL_APPLICATION_FRONT_SWITCHED, NULL);
 
+    int refresh_index = -1;
     for (int i = 0; i < buf_len(g_window_manager.applications_to_refresh); ++i) {
         if (application == g_window_manager.applications_to_refresh[i]) {
             debug("%s: %s has windows that are not yet resolved\n", __FUNCTION__, application->name);
-            window_manager_add_existing_application_windows(&g_space_manager, &g_window_manager, application, i);
+            refresh_index = i;
             break;
         }
+    }
+
+    if (refresh_index != -1 || string_equals(application->name, "Dia")) {
+        window_manager_add_existing_application_windows(&g_space_manager, &g_window_manager, application, refresh_index);
     }
 
     uint32_t application_focused_window_id = application_focused_window(application);
