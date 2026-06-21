@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- Fixed scripting-addition *add_space* pattern for macOS 26.6 Apple Silicon arm64 [#2799](https://github.com/asmvik/yabai/issues/2799)
+- Fixed minor memory leak on space destruction, and added a few missing null checks to SkyLight API calls [#2791](https://github.com/asmvik/yabai/issues/2791)
+
+## [7.1.25] - 2026-05-08
+### Changed
+- Functionality for moving windows between spaces works with SIP enabled again [#2788](https://github.com/asmvik/yabai/issues/2788)
+
+## [7.1.24] - 2026-04-24
+### Changed
+- Properly reset *focus follows mouse* window id upon window close [#2217](https://github.com/asmvik/yabai/issues/2217)
+- Fix scripting addition for macOS 26.4 Intel x64 [#2708](https://github.com/asmvik/yabai/issues/2708)
 
 ## [7.1.23] - 2026-04-20
 ### Changed
@@ -799,7 +811,9 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 ### Added
 - First official release
 
-[Unreleased]: https://github.com/asmvik/yabai/compare/v7.1.23...HEAD
+[Unreleased]: https://github.com/asmvik/yabai/compare/v7.1.25...HEAD
+[7.1.25]: https://github.com/asmvik/yabai/compare/v7.1.24...v7.1.25
+[7.1.24]: https://github.com/asmvik/yabai/compare/v7.1.23...v7.1.24
 [7.1.23]: https://github.com/asmvik/yabai/compare/v7.1.22...v7.1.23
 [7.1.22]: https://github.com/asmvik/yabai/compare/v7.1.21...v7.1.22
 [7.1.21]: https://github.com/asmvik/yabai/compare/v7.1.20...v7.1.21

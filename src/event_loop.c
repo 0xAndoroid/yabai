@@ -303,6 +303,7 @@ static EVENT_HANDLER(APPLICATION_TERMINATED)
         }
 
         if (g_mouse_state.window == window) g_mouse_state.window = NULL;
+        if (g_mouse_state.ffm_window_id == window->id) g_mouse_state.ffm_window_id = 0;
 
         if (window->is_eligible) {
             event_signal_push(SIGNAL_WINDOW_DESTROYED, window);
@@ -650,6 +651,7 @@ static EVENT_HANDLER(WINDOW_DESTROYED)
     }
 
     if (g_mouse_state.window == window) g_mouse_state.window = NULL;
+    if (g_mouse_state.ffm_window_id == window->id) g_mouse_state.ffm_window_id = 0;
 
     if (window->is_eligible) {
         event_signal_push(SIGNAL_WINDOW_DESTROYED, window);
@@ -1434,27 +1436,30 @@ static EVENT_HANDLER(MOUSE_MOVED)
             //
 
             CFArrayRef window_list = SLSCopyAssociatedWindows(g_connection, window->id);
-            int window_count = CFArrayGetCount(window_list);
+            if (window_list) {
+                int window_count = CFArrayGetCount(window_list);
 
-            uint32_t child_wid;
-            for (int i = 0; i < window_count; ++i) {
-                CFNumberGetValue(CFArrayGetValueAtIndex(window_list, i), kCFNumberSInt32Type, &child_wid);
-                struct window *child = window_manager_find_window(&g_window_manager, child_wid);
-                if (!child) continue;
+                uint32_t child_wid;
+                for (int i = 0; i < window_count; ++i) {
+                    CFNumberGetValue(CFArrayGetValueAtIndex(window_list, i), kCFNumberSInt32Type, &child_wid);
+                    struct window *child = window_manager_find_window(&g_window_manager, child_wid);
+                    if (!child) continue;
 
-                CFTypeRef role = window_role(child);
-                if (!role) continue;
+                    CFTypeRef role = window_role(child);
+                    if (!role) continue;
 
-                bool valid = CFEqual(role, kAXSheetRole) || CFEqual(role, kAXDrawerRole);
-                CFRelease(role);
+                    bool valid = CFEqual(role, kAXSheetRole) || CFEqual(role, kAXDrawerRole);
+                    CFRelease(role);
 
-                if (valid) {
-                    window = child;
-                    break;
+                    if (valid) {
+                        window = child;
+                        break;
+                    }
                 }
+
+                CFRelease(window_list);
             }
 
-            CFRelease(window_list);
             window_manager_focus_window_without_raise(&window->application->psn, window->id);
             g_mouse_state.ffm_window_id = window->id;
         } else if (g_window_manager.ffm_mode == FFM_AUTORAISE) {

@@ -494,8 +494,9 @@ int space_manager_mission_control_index(uint64_t sid)
     int desktop_cnt = 1;
 
     CFArrayRef display_spaces_ref = SLSCopyManagedDisplaySpaces(g_connection);
-    int display_spaces_count = CFArrayGetCount(display_spaces_ref);
+    if (!display_spaces_ref) return 0;
 
+    int display_spaces_count = CFArrayGetCount(display_spaces_ref);
     for (int i = 0; i < display_spaces_count; ++i) {
         CFDictionaryRef display_ref = CFArrayGetValueAtIndex(display_spaces_ref, i);
         CFArrayRef spaces_ref = CFDictionaryGetValue(display_ref, CFSTR("Spaces"));
@@ -523,8 +524,9 @@ uint64_t space_manager_mission_control_space(int desktop_id)
     int desktop_cnt = 1;
 
     CFArrayRef display_spaces_ref = SLSCopyManagedDisplaySpaces(g_connection);
-    int display_spaces_count = CFArrayGetCount(display_spaces_ref);
+    if (!display_spaces_ref) return 0;
 
+    int display_spaces_count = CFArrayGetCount(display_spaces_ref);
     for (int i = 0; i < display_spaces_count; ++i) {
         CFDictionaryRef display_ref = CFArrayGetValueAtIndex(display_spaces_ref, i);
         CFArrayRef spaces_ref = CFDictionaryGetValue(display_ref, CFSTR("Spaces"));
@@ -558,8 +560,9 @@ uint64_t space_manager_prev_space(uint64_t sid)
     uint64_t n_sid = 0;
 
     CFArrayRef display_spaces_ref = SLSCopyManagedDisplaySpaces(g_connection);
-    int display_spaces_count = CFArrayGetCount(display_spaces_ref);
+    if (!display_spaces_ref) return 0;
 
+    int display_spaces_count = CFArrayGetCount(display_spaces_ref);
     for (int i = 0; i < display_spaces_count; ++i) {
         CFDictionaryRef display_ref = CFArrayGetValueAtIndex(display_spaces_ref, i);
         CFArrayRef spaces_ref = CFDictionaryGetValue(display_ref, CFSTR("Spaces"));
@@ -586,8 +589,9 @@ uint64_t space_manager_next_space(uint64_t sid)
     bool found_sid = false;
 
     CFArrayRef display_spaces_ref = SLSCopyManagedDisplaySpaces(g_connection);
-    int display_spaces_count = CFArrayGetCount(display_spaces_ref);
+    if (!display_spaces_ref) return 0;
 
+    int display_spaces_count = CFArrayGetCount(display_spaces_ref);
     for (int i = 0; i < display_spaces_count; ++i) {
         CFDictionaryRef display_ref = CFArrayGetValueAtIndex(display_spaces_ref, i);
         CFArrayRef spaces_ref = CFDictionaryGetValue(display_ref, CFSTR("Spaces"));
@@ -613,6 +617,8 @@ uint64_t space_manager_first_space(void)
     uint64_t sid = 0;
 
     CFArrayRef display_spaces_ref = SLSCopyManagedDisplaySpaces(g_connection);
+    if (!display_spaces_ref) return 0;
+
     CFDictionaryRef display_ref = CFArrayGetValueAtIndex(display_spaces_ref, 0);
     CFArrayRef spaces_ref = CFDictionaryGetValue(display_ref, CFSTR("Spaces"));
 
@@ -629,8 +635,9 @@ uint64_t space_manager_last_space(void)
     uint64_t sid = 0;
 
     CFArrayRef display_spaces_ref = SLSCopyManagedDisplaySpaces(g_connection);
-    int display_spaces_count = CFArrayGetCount(display_spaces_ref);
+    if (!display_spaces_ref) return 0;
 
+    int display_spaces_count = CFArrayGetCount(display_spaces_ref);
     CFDictionaryRef display_ref = CFArrayGetValueAtIndex(display_spaces_ref, display_spaces_count-1);
     CFArrayRef spaces_ref = CFDictionaryGetValue(display_ref, CFSTR("Spaces"));
     int spaces_count = CFArrayGetCount(spaces_ref);
@@ -657,7 +664,15 @@ uint64_t space_manager_active_space(void)
 
 void space_manager_move_window_list_to_space(uint64_t sid, uint32_t *window_list, int window_count)
 {
-    if (!workspace_use_macos_space_workaround()) {
+    if (SLSPerformAsynchronousBridgedWindowManagementOperation) {
+        CFArrayRef window_list_ref = cfarray_of_cfnumbers(window_list, sizeof(uint32_t), window_count, kCFNumberSInt32Type);
+        Class cls = objc_getClass("SLSBridgedMoveWindowsToManagedSpaceOperation");
+        SEL sel = sel_registerName("initWithWindows:spaceID:");
+        id operation = ((id (*)(id, SEL, id, uint64_t))objc_msgSend)([cls alloc], sel, (__bridge id)window_list_ref, sid);
+        SLSPerformAsynchronousBridgedWindowManagementOperation(operation);
+        [operation release];
+        CFRelease(window_list_ref);
+    } else if (!workspace_use_macos_space_workaround()) {
         CFArrayRef window_list_ref = cfarray_of_cfnumbers(window_list, sizeof(uint32_t), window_count, kCFNumberSInt32Type);
         SLSMoveWindowsToManagedSpace(g_connection, window_list_ref, sid);
         CFRelease(window_list_ref);
@@ -670,7 +685,15 @@ void space_manager_move_window_list_to_space(uint64_t sid, uint32_t *window_list
 
 void space_manager_move_window_to_space(uint64_t sid, struct window *window)
 {
-    if (!workspace_use_macos_space_workaround()) {
+    if (SLSPerformAsynchronousBridgedWindowManagementOperation) {
+        CFArrayRef window_list_ref = cfarray_of_cfnumbers(&window->id, sizeof(uint32_t), 1, kCFNumberSInt32Type);
+        Class cls = objc_getClass("SLSBridgedMoveWindowsToManagedSpaceOperation");
+        SEL sel = sel_registerName("initWithWindows:spaceID:");
+        id operation = ((id (*)(id, SEL, id, uint64_t))objc_msgSend)([cls alloc], sel, (__bridge id)window_list_ref, sid);
+        SLSPerformAsynchronousBridgedWindowManagementOperation(operation);
+        [operation release];
+        CFRelease(window_list_ref);
+    } else if (!workspace_use_macos_space_workaround()) {
         CFArrayRef window_list_ref = cfarray_of_cfnumbers(&window->id, sizeof(uint32_t), 1, kCFNumberSInt32Type);
         SLSMoveWindowsToManagedSpace(g_connection, window_list_ref, sid);
         CFRelease(window_list_ref);
