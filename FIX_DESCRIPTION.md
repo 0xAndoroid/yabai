@@ -42,24 +42,42 @@ When Arc enters a fullscreen space (detected in `WINDOW_RESIZED`), we record the
 The fix is applied in the `WINDOW_MOVED` event handler, which reliably fires when Arc exits fullscreen:
 
 ```c
-// Arc exited fullscreen: on user space, not fullscreen, not managed
-if (is_user_space && !is_fullscreen && !is_managed) {
-    // Check if we just came from a fullscreen space
-    if (arc_state->last_fullscreen_space != 0) {
-        // Ensure window has correct flags
-        window_set_flag(window, WINDOW_MOVABLE);
-        window_set_flag(window, WINDOW_RESIZABLE);
-        window_clear_flag(window, WINDOW_FULLSCREEN);
-        
-        // Re-add to management
-        struct view *view = space_manager_tile_window_on_space(&g_space_manager, window, current_space);
-        window_manager_add_managed_window(&g_window_manager, window, view);
-        
-        // Clear the fullscreen space tracking
-        arc_state->last_fullscreen_space = 0;
+// Arc came from a fullscreen space and is now on a user space, not fullscreen
+if (fs_state && fs_state->last_fullscreen_space) {
+    if (is_user_space && !is_fullscreen) {
+        if (!is_managed) {
+            // Ensure window has correct flags
+            window_set_flag(window, WINDOW_MOVABLE);
+            window_set_flag(window, WINDOW_RESIZABLE);
+            window_clear_flag(window, WINDOW_FULLSCREEN);
+
+            // Re-add to management, respecting float/sticky/rules
+            if (window_manager_should_manage_window(window)) {
+                struct view *view = space_manager_tile_window_on_space(&g_space_manager, window, current_space);
+                window_manager_add_managed_window(&g_window_manager, window, view);
+            }
+        }
+
+        // Exit handled (here or by the normal WINDOW_RESIZED path): drop tracking
+        browser_fs_state_clear(window->id);
     }
 }
 ```
+
+The fix runs after the standard invalid-window and hidden-application guards, and only
+tiles windows that pass `window_manager_should_manage_window` — floated, sticky, or
+rule-excluded windows keep their state and only get their flags corrected.
+
+### State Lifecycle
+
+Tracking state is created only when a window is observed on a fullscreen space
+(`WINDOW_RESIZED`), and cleared on every path that resolves the transition:
+
+- `WINDOW_MOVED` fix applied (or the window is already managed again)
+- `WINDOW_RESIZED` normal fullscreen-exit path re-tiles the window
+- `WINDOW_DESTROYED` frees the slot
+
+Without these clears, stale state would force-retile windows the user later floats.
 
 ## Technical Details
 
@@ -84,7 +102,7 @@ The `WINDOW_MOVED` event is used because:
 
 ### Memory Management
 
-The fix tracks up to 10 Arc windows simultaneously using a static array. When full, it reuses the oldest slot. This is sufficient for typical usage patterns and has minimal memory overhead.
+The fix tracks up to 10 Arc/Dia windows simultaneously using a static array. Slots are only occupied while a window is in (or transitioning out of) fullscreen — they are freed when the transition resolves or the window is destroyed — so exhaustion is effectively impossible; if it ever happens, slot 0 is reused as a last resort.
 
 ## Testing
 
