@@ -1545,6 +1545,7 @@ out:
 
 static void window_manager_manage_existing_window(struct space_manager *sm, struct window_manager *wm, struct window *window)
 {
+    if (mission_control_is_active()) return;
     if (!window_manager_should_manage_window(window)) return;
     if (window_manager_find_managed_window(wm, window)) return;
 
