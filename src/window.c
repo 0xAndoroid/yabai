@@ -793,6 +793,44 @@ bool window_ax_can_resize(struct window *window)
     return result;
 }
 
+//
+// Refresh the cached AX attributes that decide manageability. A read that fails
+// (app unresponsive after wake or a display change) keeps the previous value;
+// a NULL role would otherwise disqualify the window until the next refresh.
+//
+void window_refresh_ax_state(struct window *window)
+{
+    Boolean settable;
+
+    if (AXUIElementIsAttributeSettable(window->ref, kAXPositionAttribute, &settable) == kAXErrorSuccess) {
+        if (settable) {
+            window_set_flag(window, WINDOW_MOVABLE);
+        } else {
+            window_clear_flag(window, WINDOW_MOVABLE);
+        }
+    }
+
+    if (AXUIElementIsAttributeSettable(window->ref, kAXSizeAttribute, &settable) == kAXErrorSuccess) {
+        if (settable) {
+            window_set_flag(window, WINDOW_RESIZABLE);
+        } else {
+            window_clear_flag(window, WINDOW_RESIZABLE);
+        }
+    }
+
+    CFStringRef role = window_ax_role(window);
+    if (role) {
+        if (window->role) CFRelease(window->role);
+        window->role = role;
+    }
+
+    CFStringRef subrole = window_ax_subrole(window);
+    if (subrole) {
+        if (window->subrole) CFRelease(window->subrole);
+        window->subrole = subrole;
+    }
+}
+
 bool window_can_resize(struct window *window)
 {
     return window_check_flag(window, WINDOW_RESIZABLE);

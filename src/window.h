@@ -161,6 +161,7 @@ bool window_ax_can_move(struct window *window);
 bool window_can_move(struct window *window);
 bool window_ax_can_resize(struct window *window);
 bool window_can_resize(struct window *window);
+void window_refresh_ax_state(struct window *window);
 bool window_can_minimize(struct window *window);
 bool window_is_undersized(struct window *window);
 bool window_is_fullscreen(struct window *window);
