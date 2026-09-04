@@ -119,6 +119,22 @@ CFArrayRef application_window_list(struct application *application)
 {
     CFTypeRef window_list_ref = NULL;
     AXUIElementCopyAttributeValue(application->ref, kAXWindowsAttribute, &window_list_ref);
+
+    // Arc can omit its main window from AXWindows while still exposing it directly.
+    if (!window_list_ref || CFArrayGetCount(window_list_ref) == 0) {
+        CFTypeRef window_ref = NULL;
+        AXUIElementCopyAttributeValue(application->ref, kAXMainWindowAttribute, &window_ref);
+        if (!window_ref) {
+            AXUIElementCopyAttributeValue(application->ref, kAXFocusedWindowAttribute, &window_ref);
+        }
+
+        if (window_ref) {
+            if (window_list_ref) CFRelease(window_list_ref);
+            window_list_ref = CFArrayCreate(NULL, &window_ref, 1, &kCFTypeArrayCallBacks);
+            CFRelease(window_ref);
+        }
+    }
+
     return window_list_ref;
 }
 
