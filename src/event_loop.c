@@ -393,7 +393,7 @@ static EVENT_HANDLER(APPLICATION_FRONT_SWITCHED)
         }
     }
 
-    if (refresh_index != -1 || string_equals(application->name, "Dia")) {
+    if (refresh_index != -1 || string_equals(application->name, "Arc")) {
         window_manager_add_existing_application_windows(&g_space_manager, &g_window_manager, application, refresh_index);
     }
 
