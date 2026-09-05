@@ -2595,7 +2595,15 @@ static void window_manager_check_for_windows_on_space(struct window_manager *wm,
 {
     for (int i = 0; i < window_count; ++i) {
         struct window *window = window_manager_find_window(wm, window_list[i]);
-        if (!window || !window_manager_should_manage_window(window)) continue;
+        if (!window) continue;
+
+        // Fullscreen-exit resize notifications can precede the AX state change.
+        if (window_check_flag(window, WINDOW_FULLSCREEN) && !window_is_fullscreen(window)) {
+            window_refresh_ax_state(window);
+            window_clear_flag(window, WINDOW_FULLSCREEN);
+        }
+
+        if (!window_manager_should_manage_window(window)) continue;
 
         struct view *existing_view = window_manager_find_managed_window(wm, window);
         if (existing_view && existing_view->layout != VIEW_FLOAT && existing_view != view) {
