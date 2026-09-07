@@ -5,6 +5,7 @@ extern int csr_get_active_config(uint32_t *config);
 #define CSR_ALLOW_TASK_FOR_PID    0x04
 
 extern char g_sa_socket_file[MAXLEN];
+extern int g_connection;
 
 static char osax_base_dir[MAXLEN];
 static char osax_contents_dir[MAXLEN];
@@ -441,9 +442,36 @@ static bool scripting_addition_send_bytes(char *bytes, int length)
 
 bool scripting_addition_focus_space(uint64_t sid)
 {
+    const uint64_t prevents_activation_tag = 1ULL << 16;
+    int window_count = 0;
+    uint32_t *window_list = space_window_list(sid, &window_count, false);
+    for (int i = 0; i < window_count; ++i) {
+        if (!(window_tags(window_list[i]) & prevents_activation_tag) || !window_is_sticky(window_list[i])) {
+            window_count = 0;
+            break;
+        }
+    }
+
+    // Space switching can activate a non-activating PiP's owner if no other window can take focus.
+    if (window_count) {
+        SLSDisableUpdate(g_connection);
+        for (int i = 0; i < window_count; ++i) {
+            scripting_addition_order_window(window_list[i], 0, 0);
+        }
+    }
+
     sa_payload_init();
     pack(sid);
-    return sa_payload_send(SA_OPCODE_SPACE_FOCUS);
+    bool result = (sa_payload_send(SA_OPCODE_SPACE_FOCUS));
+
+    if (window_count) {
+        for (int i = window_count - 1; i >= 0; --i) {
+            scripting_addition_order_window(window_list[i], 1, 0);
+        }
+        SLSReenableUpdate(g_connection);
+    }
+
+    return result;
 }
 
 bool scripting_addition_create_space(uint64_t sid)
@@ -582,7 +610,6 @@ bool scripting_addition_order_window(uint32_t a_wid, int order, uint32_t b_wid)
     return sa_payload_send(SA_OPCODE_WINDOW_ORDER);
 }
 
-extern int g_connection;
 bool scripting_addition_order_window_in(uint32_t *window_list, int window_count)
 {
     uint32_t dummy_wid = 0;
