@@ -1026,26 +1026,6 @@ static EVENT_HANDLER(SPACE_CHANGED)
     g_space_manager.last_space_id = g_space_manager.current_space_id;
     g_space_manager.current_space_id = space_manager_active_space();
 
-    if (!mission_control_is_active() && space_is_user(g_space_manager.current_space_id)) {
-        struct window *focused_window = window_manager_focused_window(&g_window_manager);
-        if (focused_window && !space_is_visible(window_space(focused_window->id)) && !window_is_sticky(focused_window->id)) {
-            int window_count = 0;
-            uint32_t *window_list = space_window_list(g_space_manager.current_space_id, &window_count, false);
-            bool only_sticky_windows = window_count > 0;
-            for (int i = 0; i < window_count; ++i) {
-                if (!window_is_sticky(window_list[i])) {
-                    only_sticky_windows = false;
-                    break;
-                }
-            }
-
-            // A sticky PiP can activate its app's off-space main window when the desktop has no other windows.
-            if (only_sticky_windows) {
-                _SLPSSetFrontProcessWithOptions(&g_process_manager.finder_psn, 0, kCPSNoWindows);
-            }
-        }
-    }
-
     if (g_window_manager.menubar_opacity != 1.0f) {
         float alpha = space_is_fullscreen(g_space_manager.current_space_id) ? 1.0f : g_window_manager.menubar_opacity;
         SLSSetMenuBarInsetAndAlpha(g_connection, 0, 1, alpha);
