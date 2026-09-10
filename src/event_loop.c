@@ -660,6 +660,12 @@ static EVENT_HANDLER(WINDOW_DESTROYED)
 
     debug("%s: %s %d\n", __FUNCTION__, window->application ? window->application->name : "<unknown>", window->id);
 
+    if (window->application && (window->id == g_window_manager.focused_window_id || window->id == g_window_manager.last_window_id)) {
+        g_space_manager.destroyed_focus.pid  = window->application->pid;
+        g_space_manager.destroyed_focus.sid  = g_space_manager.current_space_id;
+        g_space_manager.destroyed_focus.time = read_os_timer();
+    }
+
     browser_fs_state_clear(window->id);
 
     struct view *view = window_manager_find_managed_window(&g_window_manager, window);
@@ -1025,6 +1031,22 @@ static EVENT_HANDLER(SPACE_CHANGED)
 {
     g_space_manager.last_space_id = g_space_manager.current_space_id;
     g_space_manager.current_space_id = space_manager_active_space();
+
+    if (g_space_manager.destroyed_focus.sid) {
+        uint64_t origin_sid = g_space_manager.destroyed_focus.sid;
+        uint64_t destroyed_time = g_space_manager.destroyed_focus.time;
+        g_space_manager.destroyed_focus.sid = 0;
+
+        float dt = ((float) (read_os_timer() - destroyed_time)) * (1000.0f / (float) read_os_freq());
+        bool same_app = g_space_manager.destroyed_focus.pid == g_process_manager.front_pid;
+        bool cmd_tabbed = __atomic_load_n(&__last_cmd_tab_time, __ATOMIC_RELAXED) > destroyed_time;
+
+        // An app that loses its last window on a space may make an off-space window key, dragging the user along.
+        if (same_app && !cmd_tabbed && origin_sid == g_space_manager.last_space_id && dt < 1000.0f && !mission_control_is_active()) {
+            debug("%s: %d pulled focus to %lld %.0fms after its window closed, returning to %lld\n", __FUNCTION__, g_process_manager.front_pid, g_space_manager.current_space_id, dt, origin_sid);
+            space_manager_focus_space(origin_sid);
+        }
+    }
 
     if (g_window_manager.menubar_opacity != 1.0f) {
         float alpha = space_is_fullscreen(g_space_manager.current_space_id) ? 1.0f : g_window_manager.menubar_opacity;
