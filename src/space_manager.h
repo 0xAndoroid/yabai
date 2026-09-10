@@ -27,6 +27,11 @@ struct space_manager
     uint32_t auto_balance;
     struct space_label *labels;
     bool skip_window_focus_animation;
+    struct {
+        pid_t pid;
+        uint64_t sid;
+        uint64_t time;
+    } destroyed_focus;
 };
 
 enum space_op_error
