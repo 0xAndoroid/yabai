@@ -984,8 +984,6 @@ bool space_manager_focus_space_using_gesture(uint32_t new_did, uint64_t new_sid)
 
 enum space_op_error space_manager_focus_space(uint64_t sid)
 {
-    g_space_manager.destroyed_focus.sid = 0;
-
     bool is_in_mc = mission_control_is_active();
     if (is_in_mc) return SPACE_OP_ERROR_IN_MISSION_CONTROL;
 
