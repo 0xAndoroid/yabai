@@ -1,7 +1,14 @@
 bool workspace_event_handler_begin(void **context)
 {
     NSOperatingSystemVersion version = [[NSProcessInfo processInfo] operatingSystemVersion];
-#define SUPPORT_MACOS_VERSION(name, major_version) _workspace_is_macos_version_##name = version.majorVersion == major_version;
+
+    //
+    // NOTE: Versions newer than Tahoe take the Tahoe code paths (checked against macOS 27.0),
+    // so an OS upgrade does not drop yabai back to the Big Sur paths.
+    //
+
+    NSInteger major = version.majorVersion > 26 ? 26 : version.majorVersion;
+#define SUPPORT_MACOS_VERSION(name, major_version) _workspace_is_macos_version_##name = major == major_version;
     SUPPORTED_MACOS_VERSION_LIST
 #undef SUPPORT_MACOS_VERSION
 
