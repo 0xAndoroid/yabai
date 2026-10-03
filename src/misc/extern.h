@@ -15,6 +15,7 @@ extern CGError SLSGetWindowLevel(int cid, uint32_t wid, int *level);
 extern int SLSGetWindowSubLevel(int cid, uint32_t wid);
 extern CGError SLSGetWindowAlpha(int cid, uint32_t wid, float *alpha);
 extern CGError SLSSetWindowAlpha(int cid, uint32_t wid, float alpha);
+extern CGError SLSSetWindowColorSpace(int cid, uint32_t wid, CGColorSpaceRef color_space);
 extern CGError SLSSetWindowResolution(int cid, uint32_t wid, double resolution);
 extern CGError SLSCopyWindowProperty(int cid, uint32_t wid, CFStringRef property, CFTypeRef *value);
 extern CFStringRef SLSCopyManagedDisplayForWindow(int cid, uint32_t wid);
