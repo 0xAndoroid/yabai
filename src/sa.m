@@ -575,7 +575,7 @@ bool scripting_addition_swap_window_proxy_in(struct window_animation *animation_
     sa_payload_init();
     pack(animation_count);
     for (int i = 0; i < animation_count; ++i) {
-        if (__atomic_load_n(&animation_list[i].skip, __ATOMIC_RELAXED)) {
+        if (__atomic_load_n(&animation_list[i].skip, __ATOMIC_RELAXED) || !animation_list[i].proxy.id) {
             pack(dummy_wid);
         } else {
             pack(animation_list[i].wid);
@@ -591,7 +591,7 @@ bool scripting_addition_swap_window_proxy_out(struct window_animation *animation
     sa_payload_init();
     pack(animation_count);
     for (int i = 0; i < animation_count; ++i) {
-        if (__atomic_load_n(&animation_list[i].skip, __ATOMIC_RELAXED)) {
+        if (__atomic_load_n(&animation_list[i].skip, __ATOMIC_RELAXED) || !animation_list[i].proxy.id) {
             pack(dummy_wid);
         } else {
             pack(animation_list[i].wid);

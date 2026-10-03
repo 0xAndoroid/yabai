@@ -759,6 +759,7 @@ static EVENT_HANDLER(WINDOW_MOVED)
         }
     }
 
+    bool live_resize = window_manager_is_window_resizing(window->id);
     CGPoint new_origin = window_ax_origin(window);
     if (CGPointEqualToPoint(new_origin, window->frame.origin)) {
         debug("%s:DEBOUNCED %s %d\n", __FUNCTION__, window->application->name, window->id);
@@ -770,7 +771,7 @@ static EVENT_HANDLER(WINDOW_MOVED)
     bool windowed_fullscreen = CGRectEqualToRect(window->windowed_frame, window->frame);
     window->frame.origin = new_origin;
 
-    if (!windowed_fullscreen) {
+    if (!windowed_fullscreen && !live_resize) {
         window_clear_flag(window, WINDOW_WINDOWED);
 
         if (!g_mouse_state.window || g_mouse_state.window != window) {
@@ -819,6 +820,7 @@ static EVENT_HANDLER(WINDOW_RESIZED)
         }
     }
 
+    bool live_resize = window_manager_is_window_resizing(window->id);
     CGRect new_frame = window_ax_frame(window);
     if (CGRectEqualToRect(new_frame, window->frame) && was_fullscreen == is_fullscreen) {
         debug("%s:DEBOUNCED %s %d\n", __FUNCTION__, window->application->name, window->id);
@@ -862,7 +864,7 @@ static EVENT_HANDLER(WINDOW_RESIZED)
             g_mouse_state.window_frame.size = g_mouse_state.window->frame.size;
         }
 
-        if (!windowed_fullscreen) {
+        if (!windowed_fullscreen && !live_resize) {
             window_clear_flag(window, WINDOW_WINDOWED);
 
             if (!g_mouse_state.window || g_mouse_state.window != window) {
