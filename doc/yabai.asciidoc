@@ -201,8 +201,9 @@ Global Settings
     System Integrity Protection must be partially disabled.
 
 *window_animation_duration* ['<FLOAT_SEL>']::
-    Duration of window frame animation. +
-    If 0.0, the change in dimension is not animated. +
+    Duration of move-only window animation. +
+    Size changes, including moves that also resize, are applied immediately without stretching window content. +
+    If 0.0, movement is not animated. +
     Requires Screen Recording permissions. +
     System Integrity Protection must be partially disabled.
 
