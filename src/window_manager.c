@@ -476,6 +476,11 @@ static void window_manager_create_window_proxy(int animation_connection, struct 
     SLSSetWindowAlpha(animation_connection, proxy->id, 1.0f);
     SLSSetWindowLevel(animation_connection, proxy->id, proxy->level);
     SLSSetWindowSubLevel(animation_connection, proxy->id, proxy->sub_level);
+
+    // With the proxy in the capture's colorspace, CGContextDrawImage copies pixels instead of
+    // running a CMS conversion, which was ~80% of the draw; the compositor converts once.
+    CGColorSpaceRef color_space = CGImageGetColorSpace(proxy->image);
+    if (color_space) SLSSetWindowColorSpace(animation_connection, proxy->id, color_space);
     proxy->context = SLWindowContextCreate(animation_connection, proxy->id, 0);
 
     CGRect frame = { {0, 0}, proxy->frame.size };
