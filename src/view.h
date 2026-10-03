@@ -58,7 +58,7 @@ struct window_proxy
 {
     uint32_t id;
     CGContextRef context;
-    float tx, ty, tw, th;
+    float tx, ty;
     CGRect frame;
     int level;
     int sub_level;

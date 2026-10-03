@@ -289,9 +289,11 @@ System Integrity Protection must be partially disabled.
 .sp
 \fBwindow_animation_duration\fP [\fI<FLOAT_SEL>\fP]
 .RS 4
-Duration of window frame animation.
+Duration of move-only window animation.
 .br
-If 0.0, the change in dimension is not animated.
+Size changes, including moves that also resize, are applied immediately without stretching window content.
+.br
+If 0.0, movement is not animated.
 .br
 Requires Screen Recording permissions.
 .br
