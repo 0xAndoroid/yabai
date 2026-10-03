@@ -62,6 +62,7 @@ struct window_proxy
     CGRect frame;
     int level;
     int sub_level;
+    float capture_alpha;
     CGImageRef image;
 };
 

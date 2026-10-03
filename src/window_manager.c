@@ -460,7 +460,7 @@ static inline void window_manager_notify_jankyborders(struct window_animation *a
 }
 #pragma clang diagnostic pop
 
-static void window_manager_create_window_proxy(int animation_connection, float alpha, struct window_proxy *proxy)
+static void window_manager_create_window_proxy(int animation_connection, struct window_proxy *proxy)
 {
     if (!proxy->image) return;
 
@@ -473,7 +473,7 @@ static void window_manager_create_window_proxy(int animation_connection, float a
     sls_window_disable_shadow(proxy->id);
     SLSSetWindowOpacity(animation_connection, proxy->id, 0);
     SLSSetWindowResolution(animation_connection, proxy->id, 2.0f);
-    SLSSetWindowAlpha(animation_connection, proxy->id, alpha);
+    SLSSetWindowAlpha(animation_connection, proxy->id, 1.0f);
     SLSSetWindowLevel(animation_connection, proxy->id, proxy->level);
     SLSSetWindowSubLevel(animation_connection, proxy->id, proxy->sub_level);
     proxy->context = SLWindowContextCreate(animation_connection, proxy->id, 0);
@@ -508,8 +508,8 @@ static void *window_manager_build_window_proxy_thread_proc(void *data)
 {
     struct window_animation *animation = data;
 
-    float alpha = 1.0f;
-    SLSGetWindowAlpha(animation->cid, animation->wid, &alpha);
+    animation->proxy.capture_alpha = 1.0f;
+    SLSGetWindowAlpha(animation->cid, animation->wid, &animation->proxy.capture_alpha);
     animation->proxy.level = window_level(animation->wid);
     animation->proxy.sub_level = window_sub_level(animation->wid);
     SLSGetWindowBounds(animation->cid, animation->wid, &animation->proxy.frame);
@@ -518,17 +518,23 @@ static void *window_manager_build_window_proxy_thread_proc(void *data)
     animation->proxy.tw = animation->proxy.frame.size.width;
     animation->proxy.th = animation->proxy.frame.size.height;
 
+    //
+    // The capture is premultiplied by the window alpha, so the proxy stays at alpha 1
+    // and the per-frame alpha in window_manager_animate_window_list_thread_proc is
+    // relative to capture_alpha. Transient caching keeps CoreGraphics from retaining a
+    // converted copy of every capture in its process-wide purgeable image cache.
+    //
+
     CFArrayRef image_array = SLSHWCaptureWindowList(animation->cid, &animation->wid, 1, (1 << 11) | (1 << 8));
     if (image_array) {
-        animation->proxy.image = alpha == 1.0f
-                               ? (CGImageRef) CFRetain(CFArrayGetValueAtIndex(image_array, 0))
-                               : cgimage_restore_alpha((CGImageRef) CFArrayGetValueAtIndex(image_array, 0));
+        animation->proxy.image = (CGImageRef) CFRetain(CFArrayGetValueAtIndex(image_array, 0));
+        CGImageSetCachingFlags(animation->proxy.image, kCGImageCachingTransient);
         CFRelease(image_array);
     } else {
         animation->proxy.image = NULL;
     }
 
-    window_manager_create_window_proxy(animation->cid, alpha, &animation->proxy);
+    window_manager_create_window_proxy(animation->cid, &animation->proxy);
     return NULL;
 }
 
@@ -568,7 +574,11 @@ static CVReturn window_manager_animate_window_list_thread_proc(CVDisplayLinkRef 
 
         float alpha = 0.0f;
         SLSGetWindowAlpha(context->animation_connection, context->animation_list[i].wid, &alpha);
-        if (alpha != 0.0f) SLSTransactionSetWindowAlpha(transaction, context->animation_list[i].proxy.id, alpha);
+        if (alpha != 0.0f) {
+            float capture_alpha = context->animation_list[i].proxy.capture_alpha;
+            float proxy_alpha = capture_alpha > 0.0f ? clampf_range(alpha / capture_alpha, 0.0f, 1.0f) : alpha;
+            SLSTransactionSetWindowAlpha(transaction, context->animation_list[i].proxy.id, proxy_alpha);
+        }
     }
     SLSTransactionCommit(transaction, 0);
     CFRelease(transaction);
@@ -642,14 +652,13 @@ void window_manager_animate_window_list_async(struct window_capture *window_list
             context->animation_list[i].proxy.th                = (int)(existing_animation->proxy.th);
             context->animation_list[i].proxy.level             = existing_animation->proxy.level;
             context->animation_list[i].proxy.sub_level         = existing_animation->proxy.sub_level;
+            context->animation_list[i].proxy.capture_alpha     = existing_animation->proxy.capture_alpha;
             context->animation_list[i].proxy.image             = existing_animation->proxy.image
                                                                ? (CGImageRef) CFRetain(existing_animation->proxy.image)
                                                                : NULL;
             __asm__ __volatile__ ("" ::: "memory");
 
-            float alpha = 1.0f;
-            SLSGetWindowAlpha(context->animation_connection, context->animation_list[i].wid, &alpha);
-            window_manager_create_window_proxy(context->animation_connection, alpha, &context->animation_list[i].proxy);
+            window_manager_create_window_proxy(context->animation_connection, &context->animation_list[i].proxy);
             window_manager_notify_jankyborders(&context->animation_list[i], 1, 1325, true, false);
             window_manager_notify_jankyborders(existing_animation, 1, 1326, false, false);
 
@@ -1696,10 +1705,10 @@ bool window_manager_add_existing_application_windows(struct space_manager *sm, s
                     const void *role = NULL;
                     AXUIElementCopyAttributeValue(element_ref, kAXRoleAttribute, &role);
 
+                    bool matched = false;
                     if (role) {
                         if (CFEqual(role, kAXWindowRole)) {
                             uint32_t element_wid = ax_window_id(element_ref);
-                            bool matched = false;
 
                             if (element_wid != 0) {
                                 for (int i = 0; i < app_window_list_len; ++i) {
@@ -1714,13 +1723,13 @@ bool window_manager_add_existing_application_windows(struct space_manager *sm, s
                             if (matched) {
                                 struct window *window = window_manager_create_and_add_window(sm, wm, application, element_ref, element_wid, false);
                                 if (window) window_manager_manage_existing_window(sm, wm, window);
-                            } else {
-                                CFRelease(element_ref);
                             }
                         }
 
                         CFRelease(role);
                     }
+
+                    if (!matched) CFRelease(element_ref);
                 }
 
                 CFRelease(data_ref);
