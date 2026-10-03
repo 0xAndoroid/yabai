@@ -69,6 +69,9 @@ struct window_proxy
 struct window_animation
 {
     struct window *window;
+    AXUIElementRef window_ref;
+    AXUIElementRef application_ref;
+    CGRect frame;
     uint32_t wid;
     float x, y, w, h;
     int cid;

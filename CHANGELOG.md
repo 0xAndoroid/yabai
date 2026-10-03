@@ -6,7 +6,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 ### Changed
-- Size changes apply immediately without stretching window snapshots; move-only animations are preserved
+- Window resizing animates live content without stretching snapshots; move-only animations are preserved
 - Window animations draw the captured window image directly with transient CoreGraphics caching, removing the per-window alpha-restore readback and the unbounded purgeable image cache it filled
 - Fixed AXUIElement leak in the inactive-space window lookup that released elements only when they turned out to be windows
 - Animation proxy windows take the capture's colorspace so the proxy draw is a copy instead of a colorspace conversion
