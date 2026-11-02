@@ -1606,19 +1606,6 @@ out:
     return window;
 }
 
-static void window_manager_manage_existing_window(struct space_manager *sm, struct window_manager *wm, struct window *window)
-{
-    if (mission_control_is_active()) return;
-    if (!window_manager_should_manage_window(window)) return;
-    if (window_manager_find_managed_window(wm, window)) return;
-
-    uint64_t sid = window_space(window->id);
-    if (!space_is_user(sid)) return;
-
-    struct view *view = space_manager_tile_window_on_space(sm, window, sid);
-    window_manager_add_managed_window(wm, window, view);
-}
-
 struct window **window_manager_add_application_windows(struct space_manager *sm, struct window_manager *wm, struct application *application, int *count)
 {
     *count = 0;
@@ -1712,8 +1699,7 @@ bool window_manager_add_existing_application_windows(struct space_manager *sm, s
         }
 
         if (!window_manager_find_window(wm, window_id)) {
-            struct window *window = window_manager_create_and_add_window(sm, wm, application, CFRetain(window_ref), window_id, false);
-            if (window) window_manager_manage_existing_window(sm, wm, window);
+            window_manager_create_and_add_window(sm, wm, application, CFRetain(window_ref), window_id, false);
         }
     }
 
@@ -1775,8 +1761,7 @@ bool window_manager_add_existing_application_windows(struct space_manager *sm, s
                             }
 
                             if (matched) {
-                                struct window *window = window_manager_create_and_add_window(sm, wm, application, element_ref, element_wid, false);
-                                if (window) window_manager_manage_existing_window(sm, wm, window);
+                                window_manager_create_and_add_window(sm, wm, application, element_ref, element_wid, false);
                             }
                         }
 

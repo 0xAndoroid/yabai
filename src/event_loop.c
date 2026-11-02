@@ -384,17 +384,12 @@ static EVENT_HANDLER(APPLICATION_FRONT_SWITCHED)
     g_process_manager.front_pid = process->pid;
     event_signal_push(SIGNAL_APPLICATION_FRONT_SWITCHED, NULL);
 
-    int refresh_index = -1;
     for (int i = 0; i < buf_len(g_window_manager.applications_to_refresh); ++i) {
         if (application == g_window_manager.applications_to_refresh[i]) {
             debug("%s: %s has windows that are not yet resolved\n", __FUNCTION__, application->name);
-            refresh_index = i;
+            window_manager_add_existing_application_windows(&g_space_manager, &g_window_manager, application, i);
             break;
         }
-    }
-
-    if (refresh_index != -1 || string_equals(application->name, "Arc")) {
-        window_manager_add_existing_application_windows(&g_space_manager, &g_window_manager, application, refresh_index);
     }
 
     uint32_t application_focused_window_id = application_focused_window(application);
@@ -605,51 +600,6 @@ static EVENT_HANDLER(WINDOW_CREATED)
     }
 }
 
-// Track fullscreen transitions for browsers that don't properly update
-// window state when exiting fullscreen on macOS Sequoia/Tahoe
-typedef struct {
-    uint32_t window_id;
-    uint64_t last_fullscreen_space;
-} browser_fs_window_state;
-
-#define MAX_BROWSER_FS_WINDOWS 10
-static browser_fs_window_state browser_fs_windows[MAX_BROWSER_FS_WINDOWS] = {0};
-
-static bool browser_needs_fs_fix(const char *name) {
-    return strcmp(name, "Arc") == 0 || strcmp(name, "Dia") == 0;
-}
-
-static browser_fs_window_state* find_browser_fs_state(uint32_t window_id) {
-    for (int i = 0; i < MAX_BROWSER_FS_WINDOWS; i++) {
-        if (browser_fs_windows[i].window_id == window_id) return &browser_fs_windows[i];
-    }
-    return NULL;
-}
-
-static void browser_fs_state_record(uint32_t window_id, uint64_t fullscreen_space) {
-    browser_fs_window_state *state = find_browser_fs_state(window_id);
-    if (!state) {
-        for (int i = 0; i < MAX_BROWSER_FS_WINDOWS; i++) {
-            if (browser_fs_windows[i].window_id == 0) {
-                state = &browser_fs_windows[i];
-                break;
-            }
-        }
-    }
-    if (!state) state = &browser_fs_windows[0];
-
-    state->window_id = window_id;
-    state->last_fullscreen_space = fullscreen_space;
-}
-
-static void browser_fs_state_clear(uint32_t window_id) {
-    browser_fs_window_state *state = find_browser_fs_state(window_id);
-    if (state) {
-        state->window_id = 0;
-        state->last_fullscreen_space = 0;
-    }
-}
-
 static EVENT_HANDLER(WINDOW_DESTROYED)
 {
     struct window *window = context;
@@ -659,8 +609,6 @@ static EVENT_HANDLER(WINDOW_DESTROYED)
     }
 
     debug("%s: %s %d\n", __FUNCTION__, window->application ? window->application->name : "<unknown>", window->id);
-
-    browser_fs_state_clear(window->id);
 
     struct view *view = window_manager_find_managed_window(&g_window_manager, window);
     if (view) {
@@ -740,25 +688,6 @@ static EVENT_HANDLER(WINDOW_MOVED)
         return;
     }
 
-    bool needs_fs_fix = browser_needs_fs_fix(window->application->name);
-    browser_fs_window_state *fs_state = needs_fs_fix ? find_browser_fs_state(window->id) : NULL;
-    if (needs_fs_fix && (window_check_flag(window, WINDOW_FULLSCREEN) || (fs_state && fs_state->last_fullscreen_space))) {
-        uint64_t current_space = window_space(window->id);
-
-        if (space_is_user(current_space) && !window_is_fullscreen(window)) {
-            window_set_flag(window, WINDOW_MOVABLE);
-            window_set_flag(window, WINDOW_RESIZABLE);
-            window_clear_flag(window, WINDOW_FULLSCREEN);
-
-            if (window_manager_should_manage_window(window) && !window_manager_find_managed_window(&g_window_manager, window)) {
-                struct view *view = space_manager_tile_window_on_space(&g_space_manager, window, current_space);
-                window_manager_add_managed_window(&g_window_manager, window, view);
-            }
-
-            browser_fs_state_clear(window->id);
-        }
-    }
-
     bool live_resize = window_manager_is_window_resizing(window->id);
     CGPoint new_origin = window_ax_origin(window);
     if (CGPointEqualToPoint(new_origin, window->frame.origin)) {
@@ -813,13 +742,6 @@ static EVENT_HANDLER(WINDOW_RESIZED)
     bool was_fullscreen = window_check_flag(window, WINDOW_FULLSCREEN);
     bool is_fullscreen = window_is_fullscreen(window);
 
-    if (browser_needs_fs_fix(window->application->name)) {
-        uint64_t current_space = window_space(window->id);
-        if (!space_is_user(current_space)) {
-            browser_fs_state_record(window->id, current_space);
-        }
-    }
-
     bool live_resize = window_manager_is_window_resizing(window->id);
     CGRect new_frame = window_ax_frame(window);
     if (CGRectEqualToRect(new_frame, window->frame) && was_fullscreen == is_fullscreen) {
@@ -857,8 +779,6 @@ static EVENT_HANDLER(WINDOW_RESIZED)
             struct view *view = space_manager_tile_window_on_space(&g_space_manager, window, window_space(window->id));
             window_manager_add_managed_window(&g_window_manager, window, view);
         }
-
-        browser_fs_state_clear(window->id);
     } else if (!was_fullscreen == !is_fullscreen) {
         if (g_mouse_state.current_action == MOUSE_MODE_MOVE && g_mouse_state.window == window) {
             g_mouse_state.window_frame.size = g_mouse_state.window->frame.size;
