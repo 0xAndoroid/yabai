@@ -16,16 +16,16 @@ BINS           = $(BUILD_PATH)/yabai
 
 .PHONY: all asan tsan install man icon archive publish sign clean-build clean
 
-all: clean-build $(BINS)
+all: $(BINS)
 
 asan: BUILD_FLAGS=-std=c11 -Wall -Wextra -g -O0 -fvisibility=hidden -fsanitize=address,undefined -mmacosx-version-min=11.0 -fno-objc-arc -arch x86_64 -arch arm64 -sectcreate __TEXT __info_plist $(INFO_PLIST)
-asan: clean-build $(BINS)
+asan: $(BINS)
 
 tsan: BUILD_FLAGS=-std=c11 -Wall -Wextra -g -O0 -fvisibility=hidden -fsanitize=thread,undefined -mmacosx-version-min=11.0 -fno-objc-arc -arch x86_64 -arch arm64 -sectcreate __TEXT __info_plist $(INFO_PLIST)
-tsan: clean-build $(BINS)
+tsan: $(BINS)
 
 install: BUILD_FLAGS=-std=c11 -Wall -Wextra -DNDEBUG -O3 -fvisibility=hidden -mmacosx-version-min=11.0 -fno-objc-arc -arch x86_64 -arch arm64 -sectcreate __TEXT __info_plist $(INFO_PLIST)
-install: clean-build $(BINS)
+install: $(BINS)
 
 $(OSAX_PATH)/payload_bin.c: $(OSAX_PATH)/payload.m $(OSAX_PATH)/common.h $(OSAX_PATH)/x64_payload.m $(OSAX_PATH)/arm64_payload.m ./src/misc/hashtable.h
 	xcrun clang $(OSAX_PATH)/payload.m -shared -fPIC -O3 -mmacosx-version-min=11.0 -arch x86_64 -arch arm64e -o $(OSAX_PATH)/payload $(FRAMEWORK_PATH) -framework SkyLight -framework Foundation -framework Carbon
@@ -47,7 +47,10 @@ publish:
 	sed -i '' "60s/^VERSION=.*/VERSION=\"$(shell $(BUILD_PATH)/yabai --version | cut -d "v" -f 2)\"/" $(SCRIPT_PATH)/install.sh
 	sed -i '' "61s/^EXPECTED_HASH=.*/EXPECTED_HASH=\"$(shell shasum -a 256 $(BUILD_PATH)/$(shell $(BUILD_PATH)/yabai --version).tar.gz | cut -d " " -f 1)\"/" $(SCRIPT_PATH)/install.sh
 
-archive: man install sign icon
+# sign and icon must follow install, in this order; as prerequisites, make -j would run them in parallel with install.
+archive: man install
+	$(MAKE) sign
+	$(MAKE) icon
 	rm -rf $(ARCH_PATH)
 	mkdir -p $(ARCH_PATH)
 	cp -r $(BUILD_PATH) $(ARCH_PATH)/
@@ -65,6 +68,7 @@ clean-build:
 clean: clean-build
 	rm -f $(OSAX_SRC)
 
-$(BUILD_PATH)/yabai: $(YABAI_SRC)
+# clean-build is a prerequisite of the binary, not its sibling in all/asan/tsan/install, so make -j cannot remove $(BUILD_PATH) during or after the link.
+$(BUILD_PATH)/yabai: clean-build $(YABAI_SRC)
 	mkdir -p $(BUILD_PATH)
-	xcrun clang $^ $(BUILD_FLAGS) $(CLI_FLAGS) $(FRAMEWORK_PATH) $(FRAMEWORK) -o $@
+	xcrun clang $(YABAI_SRC) $(BUILD_FLAGS) $(CLI_FLAGS) $(FRAMEWORK_PATH) $(FRAMEWORK) -o $@
