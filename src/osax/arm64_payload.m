@@ -5,7 +5,9 @@
     __asm__("mov x0, %0\n""mov x1, %1\n""mov x2, %2\n""mov x20, %3\n" : :"r"(v0), "r"(v1), "r"(v2), "r"(v3) :"x0", "x1", "x2", "x20"); ((void (*)())(func))();
 
 uint64_t get_dock_spaces_offset(NSOperatingSystemVersion os_version) {
-    if (os_version.majorVersion == 26 || os_version.majorVersion == 27) {
+    if (os_version.majorVersion == 27) {
+        return 0x20000;
+    } else if (os_version.majorVersion == 26) {
         return 0x30000;
     } else if (os_version.majorVersion == 15) {
         return os_version.minorVersion >= 4 ? 0x1f0000 : 0x200000;
@@ -40,7 +42,7 @@ uint64_t get_dppm_offset(NSOperatingSystemVersion os_version) {
 
 uint64_t get_fix_animation_offset(NSOperatingSystemVersion os_version) {
     if (os_version.majorVersion == 27) {
-        return 0x200000;
+        return 0x170000;
     } else if (os_version.majorVersion == 26) {
         return 0x250000;
     } else if (os_version.majorVersion == 15) {
@@ -58,7 +60,7 @@ uint64_t get_fix_animation_offset(NSOperatingSystemVersion os_version) {
 
 uint64_t get_add_space_offset(NSOperatingSystemVersion os_version) {
     if (os_version.majorVersion == 27) {
-        return 0x200000;
+        return 0x170000;
     } else if (os_version.majorVersion == 26) {
         return 0x250000;
     } else if (os_version.majorVersion == 15) {
@@ -76,7 +78,7 @@ uint64_t get_add_space_offset(NSOperatingSystemVersion os_version) {
 
 uint64_t get_remove_space_offset(NSOperatingSystemVersion os_version) {
     if (os_version.majorVersion == 27) {
-        return 0x150000;
+        return 0x120000;
     } else if (os_version.majorVersion == 26) {
         return 0x1e0000;
     } else if (os_version.majorVersion == 15) {
@@ -183,8 +185,10 @@ const char *get_fix_animation_pattern(NSOperatingSystemVersion os_version) {
 }
 
 const char *get_add_space_pattern(NSOperatingSystemVersion os_version) {
-    if (os_version.majorVersion == 26 || os_version.majorVersion == 27) {
-        if (os_version.minorVersion >= 4 || os_version.majorVersion >= 27) {
+    if (os_version.majorVersion == 27) {
+        return "?? ?? ?? ?? E1 03 1E AA ?? ?? ?? 97 FE 03 01 AA ?? ?? ?? A9 FD 43 01 91 F3 03 14 AA F5 03 00 AA 96 8E 43 F8";
+    } else if (os_version.majorVersion == 26) {
+        if (os_version.minorVersion >= 4) {
             return "7F 23 03 D5 E1 03 1E AA ?? ?? ?? 97 FE 03 01 AA FD 7B 05 A9 FD 43 01 91 F3 03 14 AA F5 03";
         }
         return "7F 23 03 D5 FF C3 01 D1 E1 03 1E AA ?? ?? 00 94 FE 03 01 AA FD 7B 06 A9 FD 83 01 91 F3 03";
@@ -202,7 +206,9 @@ const char *get_add_space_pattern(NSOperatingSystemVersion os_version) {
 }
 
 const char *get_remove_space_pattern(NSOperatingSystemVersion os_version) {
-    if (os_version.majorVersion == 26 || os_version.majorVersion == 27) {
+    if (os_version.majorVersion == 27) {
+        return "?? ?? ?? ?? FF ?? ?? D1 FC ?? ?? A9 FA ?? ?? A9 F8 ?? ?? A9 F6 ?? ?? A9 F4 ?? ?? A9 FD ?? ?? A9 FD ?? ?? 91 ?? 03 03 AA F5 03 02 AA F4 03 01 AA";
+    } else if (os_version.majorVersion == 26) {
         return "7F 23 03 D5 FF ?? ?? D1 FC ?? ?? A9 FA ?? ?? A9 F8 ?? ?? A9 F6 ?? ?? A9 F4 ?? ?? A9 FD ?? ?? A9 FD ?? ?? 91 ?? 03 03 AA F5 03 02 AA F4 03 01 AA";
     } else if (os_version.majorVersion == 15) {
         return "7F 23 03 D5 FF 83 ?? D1 FC 6F ?? A9 FA 67 ?? A9 F8 5F ?? A9 F6 57 ?? A9 F4 4F ?? A9 FD 7B ?? A9 FD 43 ?? 91 ?? 03 03 AA ?? 03 02 AA ?? 03 01 AA ?? 03 00 AA ?? ?? ?? AA";
